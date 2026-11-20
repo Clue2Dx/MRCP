@@ -3,7 +3,7 @@ const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>(
 const LS={get:(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k));return v??d}catch(e){return d}},set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const uid=()=>crypto.randomUUID?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c=='x'?r:r&3|8).toString(16)});
 const DEV=LS.get('dev')||(()=>{const d=uid();LS.set('dev',d);return d})();
-let R={sources:[],branches:[],chapters:[]},Q=[],A={},M=new Set(),ME={},cur={},menu=null,QU=LS.get('queue',[]),urlc={};
+let R={sources:[],branches:[],chapters:[]},Q=[],A={},M=new Set(),ME={},cur={},menu=null,drawer=false,QU=LS.get('queue',[]),urlc={};
 let S={part:1,src:'all',br:'all',mode:'branch',ch:null,tab:'q',idx:0,dark:false,zoom:100,dpart:1,dsrc:''},EDIT=null;
 const toast=m=>{const t=$('#tt');t.innerHTML=`<div class=tt>${esc(m)}</div>`;setTimeout(()=>t.innerHTML='',3200)};
 const label=s=>s.name+(s.year?' '+s.year:'');
@@ -72,10 +72,10 @@ const M_={part:[[1,'Part 1'],[2,'Part 2']].map(([v,l])=>[v,l,cnt(q=>q.part===v)]
 br:[['all','All branches',cnt(inF)],...R.branches.map(b=>[b.id,b.name,cnt(q=>inF(q)&&q.branch_id===b.id)])],
 ch:R.chapters.filter(c=>c.branch_id===f.br).map(c=>[c.id,c.name,cnt(q=>inF(q)&&q.chapter_id===c.id)])};
 const L={part:'Part '+f.part,src:f.src==='all'?'All sources':label(byId(R.sources,f.src)||{name:'?'}),br:f.br==='all'?'All branches':bn(f.br),ch:f.ch?cn(f.ch):'Choose chapter'};
-const keys=['part','src','br'].concat(f.mode==='chapter'&&f.br!=='all'?['ch']:[]);
-let h=keys.map(m=>`<div class=mg><button class="mt ${menu===m?'o':''}" data-a=menu data-v=${m}>${esc(L[m])} <small>▾</small></button>${menu===m?`<div class=pop id=pop>${M_[m].map(([v,l,n])=>`<button class="mi2 ${f[m]===v?'s':''}" data-a=pick data-m=${m} data-v="${v}">${esc(l)}<b>${n}</b></button>`).join('')||'<div class=t style="padding:12px">No chapters</div>'}</div>`:''}</div>`).join('');
-h+=`<button class=mt data-a=mode>${f.mode==='branch'?'Branch mode':'Chapter mode'} ⇄</button><span class=sp></span><span class=sy id=sy></span>`+Object.entries({q:'Questions',p:'Performance',r:'Review',s:'Settings'}).map(([k,v])=>`<button class="mt ${f.tab===k?'on':''}" data-a=tab data-v=${k}>${v}</button>`).join('');
-$('#mb').innerHTML=h;badge();const p=$('#pop');if(p){const r=p.parentElement.getBoundingClientRect();p.style.top=r.bottom+'px';p.style.left=Math.max(8,Math.min(r.left,innerWidth-p.offsetWidth-8))+'px'}}
+const DR=`<div class=mg><button class="mt ${drawer?'o':''}" data-a=drawer aria-label="Menu" style="font-size:20px;padding:0 14px">☰</button>${drawer?`<div class=pop id=dr>${Object.entries({q:'Questions',p:'Performance',r:'Review',s:'Settings'}).map(([k,v])=>`<button class="mi2 ${f.tab===k?'s':''}" data-a=tab data-v=${k}>${v}</button>`).join('')}</div>`:''}</div>`,keys=['part','src','br'].concat(f.mode==='chapter'&&f.br!=='all'?['ch']:[]);
+let h=DR+keys.map(m=>`<div class=mg><button class="mt ${menu===m?'o':''}" data-a=menu data-v=${m}>${esc(L[m])} <small>▾</small></button>${menu===m?`<div class=pop id=pop>${M_[m].map(([v,l,n])=>`<button class="mi2 ${f[m]===v?'s':''}" data-a=pick data-m=${m} data-v="${v}">${esc(l)}<b>${n}</b></button>`).join('')||'<div class=t style="padding:12px">No chapters</div>'}</div>`:''}</div>`).join('');
+h+=`<button class=mt data-a=mode>${f.mode==='branch'?'Branch mode':'Chapter mode'} ⇄</button><span class=sp></span><span class=sy id=sy></span>`;
+$('#mb').innerHTML=h;badge();const d=$('#dr');if(d){const r=d.parentElement.getBoundingClientRect();d.style.top=r.bottom+'px';d.style.left=Math.max(8,r.left)+'px'}const p=$('#pop');if(p){const r=p.parentElement.getBoundingClientRect();p.style.top=r.bottom+'px';p.style.left=Math.max(8,Math.min(r.left,innerWidth-p.offsetWidth-8))+'px'}}
 const tools=L=>{const s=stat(L);return`<div class=tools><label>Page size <input type=range min=70 max=160 step=5 value=${S.zoom} data-c=zoom> <b id=zv>${S.zoom}%</b></label><span>Score <b>${s.c} / ${s.n}</b></span><button class=tg data-a=dark>${S.dark?'☀':'☾'}</button></div>`};
 const item=q=>`<div class=rw><span><b>${esc(bn(q.branch_id))}</b> · ${esc(cn(q.chapter_id))||'—'}<small>${esc(label(byId(R.sources,q.source_id)||{name:''}))} · Part ${q.part} · #${q.position}</small></span><span class=f style="flex:none;min-width:0"><button class="btn s g" data-a=open data-v=${q.id}>Open</button><button class="btn s" data-a=retry data-v=${q.id}>Retry</button></span></div>`;
 
@@ -127,7 +127,7 @@ function open(id,retry){const q=byId(Q,id);Object.assign(S,{part:q.part,src:q.so
 
 /* ---------- actions ---------- */
 async function act(a,v,el){const L=S.tab==='q'?list():[],q=L[S.idx];
-if(a==='menu'){menu=menu===v?null:v;return bar()}menu=null;
+if(a==='drawer'){drawer=!drawer;menu=null;return bar()}if(a==='menu'){menu=menu===v?null:v;drawer=false;return bar()}menu=null;drawer=false;
 if(a==='login'){const{error}=await sb.auth.signInWithPassword({email:$('#em').value.trim(),password:$('#pw').value});return error?loginView(error.message):boot()}
 if(a==='forgot'){const e=$('#em').value.trim();if(!e)return toast('Enter your email first');const{error}=await sb.auth.resetPasswordForEmail(e,{redirectTo:location.origin+location.pathname});return toast(error?error.message:'Reset link sent to your email')}
 if(a==='newpw'){const{error}=await sb.auth.updateUser({password:$('#pw').value});return error?toast(error.message):boot()}
@@ -221,7 +221,7 @@ if(a==='ren'){const n=prompt('New name',o.name);if(!n)return;const u={name:n.tri
 else{if(!confirm('Delete "'+o.name+'"? Questions are hidden but all progress is kept.'))return;r=await sb.from(t).update({deleted_at:new Date().toISOString()}).eq('id',id)}
 if(r.error)return toast(r.error.message);await load();render()}
 
-document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(b)act(b.dataset.a,b.dataset.v,b);else if(menu){menu=null;bar()}});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(b)act(b.dataset.a,b.dataset.v,b);else if(menu||drawer){menu=null;drawer=false;bar()}});
 document.addEventListener('input',e=>{if(e.target.dataset.c==='zoom'){S.zoom=+e.target.value;$('#app').style.zoom=S.zoom/100;const z=$('#zv');if(z)z.textContent=S.zoom+'%'}});
 document.addEventListener('change',e=>{const c=e.target.dataset.c;if(c==='eb'){const b=e.target.value;$('#ec').innerHTML='<option value="">No chapter</option>'+opts(R.chapters.filter(x=>x.branch_id===b),x=>x.name,'');return}
 if(c==='pimp'){const f=e.target.files[0];e.target.value='';if(f)importProgress(f);return}
