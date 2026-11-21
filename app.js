@@ -159,18 +159,29 @@ else if(a==='addbr'){const n=prompt('Branch name');if(!n)return;r=await sb.from(
 else{if(S.br==='all')return toast('Select a branch in the top bar first');const n=prompt('Chapter name for '+bn(S.br));if(!n)return;r=await sb.from('chapters').insert({branch_id:S.br,name:n.trim(),sort_order:R.chapters.length+1})}
 if(r.error)return toast(r.error.message);await load();render();toast('Added')}
 
-async function doImp(){const m=$('#msg'),files=[...$('#fq').files],re=/^(\d+).*?_([qa])\.\w+$/i;if(!files.length||!files.every(f=>re.test(f.name)))return m.textContent='Select files named like 0001_kE_n5_q.webp / 0001_a.webp';
+async function doImp(){const m=$('#msg'),all=[...$('#fq').files],re=/^(\d+).*?_([qa])\.\w+$/i;let meta=null;
+const pj=all.find(f=>f.name==='pack.json');if(pj){try{meta=JSON.parse(await pj.text())}catch(e){return m.textContent='pack.json is not valid'}}
+const files=all.filter(f=>f!==pj);if(!files.length||!files.every(f=>re.test(f.name)))return m.textContent='Select files named like 0001_c01_kE_n5_q.webp / 0001_a.webp (and pack.json if present)';
 const d={};files.forEach(f=>{const x=f.name.match(re);(d[+x[1]]=d[+x[1]]||{})[x[2].toLowerCase()]=f});
 const keys=Object.keys(d).map(Number).sort((a,b)=>a-b).filter(k=>d[k].q);
-const part=+$('#ip').value,src=$('#is').value,br=$('#ib').value,ch=$('#ic').value||null;
+let part=+$('#ip').value,src=$('#is').value,br=$('#ib').value,def=$('#ic').value||null,chmap={};
+if(meta){m.textContent='Preparing source, branch and chapters…';part=meta.part||part;
+ let so=R.sources.find(x=>x.name===meta.source.name&&(x.year||null)===(meta.source.year||null));
+ if(!so){const r=await sb.from('sources').insert({name:meta.source.name,year:meta.source.year||null,sort_order:R.sources.length+1}).select().single();if(r.error){m.textContent=r.error.message;return}so=r.data}
+ let bo=R.branches.find(x=>x.name===meta.branch);
+ if(!bo){const r=await sb.from('branches').insert({name:meta.branch,sort_order:R.branches.length+1}).select().single();if(r.error){m.textContent=r.error.message;return}bo=r.data}
+ src=so.id;br=bo.id;R.sources.push(so);R.branches.includes(bo)||R.branches.push(bo);
+ for(const c of meta.chapters||[]){let co=R.chapters.find(x=>x.branch_id===br&&x.name===c.name);
+  if(!co){const r=await sb.from('chapters').insert({branch_id:br,name:c.name,sort_order:c.order||R.chapters.length+1}).select().single();if(r.error){m.textContent=r.error.message;return}co=r.data;R.chapters.push(co)}
+  chmap[c.id]=co.id}}
 let known;try{known=new Set((await fetchAll(()=>sb.from('questions').select('content_hash').order('id'))).map(x=>x.content_hash))}catch(e){return m.textContent=e.message}
 let pos=Math.max(0,...Q.filter(q=>q.part===part&&q.source_id===src&&q.branch_id===br).map(q=>q.position)),ok=0,dup=0;
 for(let i=0;i<keys.length;i++){const f=d[keys[i]],buf=await f.q.arrayBuffer(),hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',buf))].map(b=>b.toString(16).padStart(2,'0')).join('');
 m.textContent=`Importing ${i+1} / ${keys.length}…`;if(known.has(hash)){dup++;continue}
-const id=uid(),qp=`${id}/q.webp`,ap=f.a?`${id}/a.webp`:null,k=f.q.name.match(/_k([A-H])_/i),n=f.q.name.match(/_n(\d)_/);
+const id=uid(),qp=`${id}/q.webp`,ap=f.a?`${id}/a.webp`:null,k=f.q.name.match(/_k([A-H])_/i),n=f.q.name.match(/_n(\d)_/),c=f.q.name.match(/_(c\d+)_/);
 let r=await sb.storage.from(CFG.bucket).upload(qp,f.q,{contentType:f.q.type||'image/webp'});if(r.error){m.textContent=r.error.message;return}
 if(ap){r=await sb.storage.from(CFG.bucket).upload(ap,f.a,{contentType:f.a.type||'image/webp'});if(r.error){m.textContent=r.error.message;return}}
-r=await sb.from('questions').insert({id,part,source_id:src,branch_id:br,chapter_id:ch,position:++pos,n_options:n?+n[1]:5,correct_option:k?k[1].toUpperCase():null,question_img:qp,answer_img:ap,content_hash:hash});
+r=await sb.from('questions').insert({id,part,source_id:src,branch_id:br,chapter_id:(c&&chmap[c[1]])||def,position:++pos,n_options:n?+n[1]:5,correct_option:k&&k[1]!=='X'?k[1].toUpperCase():null,question_img:qp,answer_img:ap,content_hash:hash});
 if(r.error){m.textContent=r.error.message;return}known.add(hash);ok++}
 await load();render();toast(`Imported ${ok}, skipped ${dup} duplicates`)}
 
