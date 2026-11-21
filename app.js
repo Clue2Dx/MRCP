@@ -61,7 +61,7 @@ const IMGC='mrcp-img-v1',ik=p=>'https://img.cache/'+p,CS=()=>self.caches?caches.
 function img(path){if(!path)return Promise.resolve('');if(urlc[path])return urlc[path];
 return urlc[path]=(async()=>{try{const r=await(await CS()).match(ik(path));if(r)return URL.createObjectURL(await r.blob())}catch(e){}
 if(!navigator.onLine)return'';const{data}=await sb.storage.from(CFG.bucket).createSignedUrl(path,21600);if(!data)return'';
-fetch(data.signedUrl).then(r=>r.ok&&CS().then(c=>c.put(ik(path),r))).catch(()=>{});return data.signedUrl})().then(u=>{if(!u)delete urlc[path];return u})}
+return data.signedUrl})().then(u=>{if(!u)delete urlc[path];return u})}
 async function hydrate(){for(const el of document.querySelectorAll('img[data-p]')){const u=await img(el.dataset.p);if(u)el.src=u;else el.alt='Image unavailable offline'}}
 const title=()=>S.mode==='chapter'&&S.ch?cn(S.ch):S.br==='all'?'All branches':bn(S.br);
 const crumb=()=>`${S.src==='all'?'All sources':label(byId(R.sources,S.src)||{name:''})} · Part ${S.part}${S.mode==='chapter'&&S.br!=='all'?' · '+bn(S.br):''}`;
@@ -109,7 +109,7 @@ const mgl=(arr,k,lab)=>arr.map(x=>`<div class=rw><span>${esc(lab(x))}</span><spa
 function vS(){const adm=ME.is_admin;
 let h=`<div class=bc>Preferences</div><h1>Settings</h1><div class=sec><h3>Display & defaults</h3><div class=rw><label><input type=checkbox data-c=dark ${S.dark?'checked':''}> Dark mode</label><label>Zoom <b>${S.zoom}%</b> <input type=range min=70 max=160 step=5 value=${S.zoom} data-c=zoom></label></div>
 <div class=f><select data-c=dpart><option value=1 ${S.dpart===1?'selected':''}>Default: Part 1</option><option value=2 ${S.dpart===2?'selected':''}>Default: Part 2</option></select><select data-c=dsrc><option value="">Default source: none</option>${opts(srcs(),label,S.dsrc)}</select></div></div>
-<div class=sec><h3>Offline images</h3><p class=t id=ou></p><div class=f><button class="btn g" data-a=dlview>Download current view</button><button class="btn g" data-a=dlall>Download everything</button><button class="btn g" data-a=dlclear>Clear</button></div><p class=t id=omsg></p></div>
+<div class=sec><h3>Offline — download by branch</h3><p class=t id=ou></p>${offList()}<p class=t>Images are only stored on this device when you press Download. Remove deletes them from this device only.</p></div>
 <div class=sec><h3>Backup & recovery</h3><div class=f><button class="btn g" data-a=expp>Export my progress</button><label class="btn g" style="cursor:pointer">Import progress (merge)<input type=file accept=".json" data-c=pimp hidden></label><button class="btn g" data-a=sync>Retry sync (${QU.length} pending)</button></div><p class=t id=bmsg>Import only adds missing records. Nothing existing is deleted or overwritten.</p></div>
 <div class=sec><h3>Account</h3><button class="btn g" data-a=logout>Sign out</button> <button class="btn g" data-a=refresh>Refresh data</button></div>`;
 if(adm){const o=(a,l)=>a.map(x=>`<option value="${x.id}">${esc(l(x))}</option>`).join('');
@@ -121,7 +121,7 @@ h+=`<div class=sec><h3>Admin — classification</h3><div class=f><button class="
 <button class="btn g" data-a=expb>Export question bank (metadata)</button></div>`}
 return h}
 
-function render(){document.body.classList.toggle('dark',S.dark);bar();$('#app').style.zoom=S.zoom/100;$('#app').innerHTML={q:vQ,p:vP,r:vR,s:vS}[S.tab]();hydrate();if(S.tab==='s')usage();
+function render(){document.body.classList.toggle('dark',S.dark);bar();$('#app').style.zoom=S.zoom/100;$('#app').innerHTML={q:vQ,p:vP,r:vR,s:vS}[S.tab]();hydrate();if(S.tab==='s'){usage();offStatus()}
 if(S.tab==='q'){const L=list(),n=L[S.idx+1];if(n){img(n.question_img);img(n.answer_img)}}}
 function open(id,retry){const q=byId(Q,id);Object.assign(S,{part:q.part,src:q.source_id,br:q.branch_id,mode:'branch',ch:null,tab:'q'});S.idx=list().findIndex(x=>x.id===id);if(retry)cur[id]={sel:null};savePos();render();scrollTo(0,0)}
 
@@ -148,7 +148,7 @@ else if(a==='open')return open(v);else if(a==='retry'){if(S.tab==='q'&&q&&q.id==
 else if(a==='edit'&&q)EDIT=q.id;else if(a==='ecancel')EDIT=null;else if(a==='esave')return saveEdit(q);
 else if(a==='imp')return doImp();else if(a==='bulk')return bulk();
 else if(a==='ren'||a==='rm')return manage(a,el.dataset.k,v);
-else if(a==='dlview')return dlImgs('view');else if(a==='dlall')return dlImgs('all');else if(a==='dlclear')return dlClear();
+else if(a==='dlg')return dlGroup(v);else if(a==='rmg')return rmGroup(v);
 else if(a==='expp')return exportProgress();else if(a==='expb')return exportBank();else if(a==='sync'){await flush();toast(QU.length?'Still pending: '+QU.length:'All synced');return render()}
 else if(a==='addsrc'||a==='addbr'||a==='addch')return addClass(a);
 render();if(['go','next','prev','pick'].includes(a))scrollTo(0,0)}
@@ -187,13 +187,20 @@ await load();render();toast(`Imported ${ok}, skipped ${dup} duplicates`)}
 
 /* ---------- offline images ---------- */
 async function usage(){const el=$('#ou');if(!el||!navigator.storage||!navigator.storage.estimate)return;const e=await navigator.storage.estimate();el.textContent=`Stored on this device: ${Math.round((e.usage||0)/1048576)} MB of ${Math.round((e.quota||0)/1048576)} MB available`;try{navigator.storage.persist&&navigator.storage.persist()}catch(x){}}
-async function dlImgs(scope){const m=$('#omsg');if(!navigator.onLine)return m.textContent='You are offline.';let c;try{c=await CS()}catch(e){return m.textContent='Offline storage is not available (HTTPS needed).'}
-const qs=scope==='all'?Q:Q.filter(q=>inF(q)&&(S.br==='all'||q.branch_id===S.br)),paths=[...new Set(qs.flatMap(q=>[q.question_img,q.answer_img]).filter(Boolean))],todo=[];
-for(const p of paths)if(!(await c.match(ik(p))))todo.push(p);let done=0;
-for(let i=0;i<todo.length;i+=20){const ch=todo.slice(i,i+20),{data,error}=await sb.storage.from(CFG.bucket).createSignedUrls(ch,21600);if(error){m.textContent=error.message;return}
-await Promise.all(data.map(async d=>{try{if(d.signedUrl){const r=await fetch(d.signedUrl);if(r.ok)await c.put(ik(d.path),r)}}catch(e){}done++;m.textContent=`Downloading ${done} / ${todo.length}…`}))}
-m.textContent=`Done — ${paths.length} images available offline.`;usage()}
-async function dlClear(){if(!confirm('Remove all offline images from this device?'))return;await caches.delete(IMGC);urlc={};toast('Offline images cleared');usage()}
+const gk=q=>q.part+'|'+q.source_id+'|'+q.branch_id,pathsOf=l=>[...new Set(l.flatMap(q=>[q.question_img,q.answer_img]).filter(Boolean))];
+function gmap(){const g={};Q.forEach(q=>(g[gk(q)]=g[gk(q)]||[]).push(q));return g}
+function offList(){const o=sOrder(),g=Object.entries(gmap()).sort((x,y)=>x[1][0].part-y[1][0].part||o[x[1][0].source_id]-o[y[1][0].source_id]||bn(x[1][0].branch_id).localeCompare(bn(y[1][0].branch_id)));
+return g.map(([k,l])=>`<div class=rw><span><b>${esc(bn(l[0].branch_id))}</b> · ${esc(label(byId(R.sources,l[0].source_id)))}<small>Part ${l[0].part} · ${l.length} questions · <span data-st="${esc(k)}">checking…</span></small></span><span class=f style="flex:none;min-width:0"><button class="btn s g" data-a=dlg data-v="${esc(k)}">Download</button><button class="btn s g" data-a=rmg data-v="${esc(k)}">Remove</button></span></div>`).join('')||'<span class=t>No questions yet</span>'}
+const stEl=k=>[...document.querySelectorAll('[data-st]')].find(e=>e.dataset.st===k);
+async function offStatus(){const have=new Set();try{(await(await CS()).keys()).forEach(r=>have.add(r.url.replace('https://img.cache/','')))}catch(e){}
+const g=gmap();document.querySelectorAll('[data-st]').forEach(el=>{const ps=pathsOf(g[el.dataset.st]||[]),n=ps.filter(x=>have.has(x)).length;el.textContent=n&&n===ps.length?'On device ✓':n?`Partial ${n}/${ps.length}`:'Not downloaded'})}
+async function dlGroup(k){const l=gmap()[k],el=stEl(k);if(!l)return;if(!navigator.onLine)return toast('You are offline');let c;try{c=await CS()}catch(e){return toast('Offline storage needs HTTPS')}
+const paths=pathsOf(l),todo=[];for(const p of paths)if(!(await c.match(ik(p))))todo.push(p);let done=0;
+for(let i=0;i<todo.length;i+=20){const ch=todo.slice(i,i+20),{data,error}=await sb.storage.from(CFG.bucket).createSignedUrls(ch,21600);if(error){el.textContent=error.message;return}
+await Promise.all(data.map(async d=>{try{if(d.signedUrl){const r=await fetch(d.signedUrl);if(r.ok)await c.put(ik(d.path),r)}}catch(e){}done++;el.textContent=`Downloading ${done} / ${todo.length}…`}))}
+await offStatus();usage();toast('Downloaded for offline use')}
+async function rmGroup(k){const l=gmap()[k];if(!l||!confirm(`Remove "${bn(l[0].branch_id)}" images from this device?\nYour progress and the online question bank are not affected.`))return;
+try{const c=await CS();for(const p of pathsOf(l)){await c.delete(ik(p));delete urlc[p]}}catch(e){}await offStatus();usage();toast('Removed from this device')}
 
 /* ---------- backup & recovery ---------- */
 const sha=async t=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t)))].map(b=>b.toString(16).padStart(2,'0')).join('');
