@@ -47,8 +47,9 @@ function log(action,entity,details){const e={action,entity,details:details||{},a
 function loginView(msg){$('#nav').innerHTML='';$('#app').innerHTML=`<div class=lg><div class=brand>MRCP <span>Prep</span></div><h1>${t('signIn')}</h1><input type=email id=em placeholder="${t('email')}" autocomplete=username><input type=password id=pw placeholder="${t('password')}" autocomplete=current-password><button class="btn p" data-a=login>${t('signIn')}</button><button class="btn g" data-a=forgot>${t('forgot')}</button><button class="btn g" data-a=demo>${t('tryDemo')}</button><p class=t>${esc(msg||'')}</p><p class=t><button class=lk data-a=lang data-v=${S.lang==='ar'?'en':'ar'}>${S.lang==='ar'?'English':'العربية'}</button></p></div>`}
 async function boot(){applyUI();const{data:{session}}=await sb.auth.getSession();
 if(!session){const d=LS.get('cache2');if(!navigator.onLine&&d){apply(d);render();return toast(t('offlineMode'))}return loginView()}
-try{await load()}catch(e){return loginView('Could not load data: '+(e.message||e))}render();flush();
-sb.from('activity_log').select('id').limit(1).then(r=>{if(r&&r.error)ACT=false})}
+const cached=LS.get('cache2');
+if(cached){apply(cached);render();flush();load().then(ch=>{if(ch)render()}).catch(()=>{})}
+else{try{await load()}catch(e){return loginView('Could not load data: '+(e.message||e))}render();flush()}}
 sb.auth.onAuthStateChange(ev=>{if(ev==='SIGNED_OUT')loginView()});
 function apply(d){R=d.R;QA=d.QA;A={};d.A.forEach(a=>A[a.question_id]={sel:a.selected,ok:a.is_correct,at:a.answered_at});M=new Set(d.M);ME=d.ME||{};
 const ok=q=>R.sources.some(x=>x.id===q.source_id)&&R.branches.some(x=>x.id===q.branch_id);Q=QA.filter(q=>q.status==='published'&&ok(q));qMap={};QA.forEach(q=>qMap[q.id]=q);
@@ -57,13 +58,14 @@ const st=ME.settings||{};if(!QU.some(o=>o.k==='set')){S.theme=st.theme||(st.dark
 if(!apply.done){S.part=S.dpart;S.src=S.dsrc||'all';if(S.sess&&S.sess.part){S.part=S.sess.part;S.src=S.sess.src}apply.done=1}applyUI()}
 async function load(){try{
 const[s,b,c,qs,at,mk,pf]=await Promise.all([sb.from('sources').select('*').is('deleted_at',null),sb.from('branches').select('*').is('deleted_at',null).order('sort_order'),sb.from('chapters').select('*').is('deleted_at',null).order('sort_order'),
-fetchAll(()=>sb.from('questions').select('id,part,source_id,branch_id,chapter_id,position,n_options,correct_option,question_img,answer_img,content_hash,status,current_version,updated_at').order('position').order('id')),
+fetchAll(()=>sb.from('questions').select('id,part,source_id,branch_id,chapter_id,position,n_options,correct_option,question_img,answer_img,status').order('position').order('id')),
 fetchAll(()=>sb.from('latest_attempts').select('question_id,selected,is_correct,answered_at').order('question_id')),
 fetchAll(()=>sb.from('question_state').select('question_id').eq('marked',true).order('question_id')),sb.from('profiles').select('*').single()]);
 for(const x of[s,b,c,pf])if(x.error)throw x.error;
-const d={R:{sources:s.data,branches:b.data,chapters:c.data},QA:qs,A:at,M:mk.map(x=>x.question_id),ME:pf.data};LS.set('cache2',d);apply(d)}
-catch(e){const d=LS.get('cache2');if(!d)throw e;apply(d);toast(t('offlineMode'))}}
+const d={R:{sources:s.data,branches:b.data,chapters:c.data},QA:qs,A:at,M:mk.map(x=>x.question_id),ME:pf.data},str=JSON.stringify(d),changed=str!==localStorage.getItem('cache2');try{localStorage.setItem('cache2',str)}catch(e){}apply(d);return changed}
+catch(e){const d=LS.get('cache2');if(!d)throw e;apply(d);toast(t('offlineMode'));return true}}
 function applyUI(){const dk=S.theme==='dark'||(S.theme==='auto'&&matchMedia('(prefers-color-scheme: dark)').matches);document.body.classList.toggle('dark',dk);document.documentElement.lang=S.lang;document.documentElement.dir=S.lang==='ar'?'rtl':'ltr'}
+let HASH=null;async function hashes(){if(!HASH){const r=await fetchAll(()=>sb.from('questions').select('id,content_hash').order('id'));HASH=new Set(r.map(x=>x.content_hash).filter(Boolean))}return HASH}
 /* ================= helpers ================= */
 const stat=L=>{const a=L.filter(q=>A[q.id]&&A[q.id].ok!=null),c=a.filter(q=>A[q.id].ok).length;return{n:a.length,c,w:a.length-c,pct:a.length?Math.round(c/a.length*100):0,tot:L.length,prog:L.length?Math.round(a.length/L.length*100):0}};
 const base=()=>Q.filter(q=>q.part===S.part&&(S.src==='all'||q.source_id===S.src));
@@ -72,9 +74,12 @@ const letters=q=>'ABCDEFGH'.slice(0,q.n_options||5).split('');
 const IC={home:'M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',chart:'M4 20V10M10 20V4M16 20v-7M22 20H2',lib:'M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5M3 17.5l9 5 9-5',cog:'M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0M14 4v4M8 10v4M16 16v4',flag:'M5 21V4h11l-1.5 4L16 12H5',check:'M5 12l5 5 9-10',x:'M6 6l12 12M18 6L6 18',plus:'M12 5v14M5 12h14',trash:'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13',search:'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4',chev:'M9 6l6 6-6 6',back:'M15 6l-6 6 6 6',grid:'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',edit:'M4 20h4L19 9l-4-4L4 16zM13 7l4 4',up:'M12 16V4M7 9l5-5 5 5M4 20h16',undo:'M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3',moon:'M20 14A8 8 0 0 1 10 4a8 8 0 1 0 10 10z',more:'M5 12h.01M12 12h.01M19 12h.01'};
 const ic=(n,s=20)=>`<svg width=${s} height=${s} viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.9 stroke-linecap=round stroke-linejoin=round aria-hidden=true><path d="${IC[n]}"/></svg>`;
 const ring=(p,sz=84)=>{const r=sz/2-7,c=2*Math.PI*r;return`<svg width=${sz} height=${sz} viewBox="0 0 ${sz} ${sz}" class=ring><circle cx=${sz/2} cy=${sz/2} r=${r} fill=none stroke="var(--ln)" stroke-width=7 /><circle cx=${sz/2} cy=${sz/2} r=${r} fill=none stroke="var(--ac)" stroke-width=7 stroke-linecap=round stroke-dasharray="${c*p/100} ${c}" transform="rotate(-90 ${sz/2} ${sz/2})"/><text x=50% y=50% text-anchor=middle dominant-baseline=central font-size=${sz/4.2} font-weight=700 fill="var(--tx)">${p}%</text></svg>`};
+const sig={};
+function primeUrls(paths,warm){const need=[...new Set(paths.filter(p=>p&&!sig[p]&&!urlc[p]))].slice(0,40);if(need.length&&navigator.onLine){const pr=sb.storage.from(CF.bucket).createSignedUrls(need,21600).then(r=>{const m={};((r&&r.data)||[]).forEach(d=>{if(d.signedUrl)m[d.path]=d.signedUrl});return m}).catch(()=>({}));need.forEach(x=>{sig[x]=pr.then(m=>m[x]||'')})}
+ (warm||[]).forEach(p=>{if(sig[p])sig[p].then(u=>{if(u){const i=new Image();i.src=u}})})}
 function img(path){if(!path)return Promise.resolve('');if(urlc[path])return urlc[path];
 return urlc[path]=(async()=>{try{const r=await(await caches.open('mrcp-img-v1')).match('https://img.cache/'+path);if(r)return URL.createObjectURL(await r.blob())}catch(e){}
-if(!navigator.onLine)return'';const{data}=await sb.storage.from(CF.bucket).createSignedUrl(path,21600);return data?data.signedUrl:''})().then(u=>{if(!u)delete urlc[path];return u})}
+if(!navigator.onLine)return'';if(sig[path]){const u=await sig[path];if(u)return u}const{data}=await sb.storage.from(CF.bucket).createSignedUrl(path,21600);return data?data.signedUrl:''})().then(u=>{if(!u)delete urlc[path];return u})}
 async function hydrate(){for(const el of document.querySelectorAll('img[data-p]')){const u=await img(el.dataset.p);if(u)el.src=u;else el.alt='…'}}
 /* ================= nav / shell ================= */
 const flip=n=>`<span class=flip>${ic(n)}</span>`;
@@ -134,7 +139,7 @@ function bottomBar(){if(S.page==='practice'){const ids=sessIds();if(!ids.length)
  if(S.page==='library'&&S.lib.sel.size&&(S.lib.tab==='q'||S.lib.tab==='trash')){const trash=S.lib.tab==='trash';return`<div class=abar><div class=selbar><b>${S.lib.sel.size} ${t('selected')}</b>${trash?`<button class="btn s a" data-a=lresel>${t('restore')}</button>`:`<button class="btn s g" data-a=lmove>${t('moveSel')}</button><button class="btn s d" data-a=ldelsel>${t('del')}</button>`}<button class="btn s g" data-a=lclear>${t('clear')}</button></div></div>`}return''}
 /* ================= render ================= */
 function render(){document.body.dataset.page=S.page;if($('#nav').firstChild||S.page)$('#nav').innerHTML=navHtml();$('#app').style.zoom=S.zoom/100;
-const v={study:vStudy,practice:vPractice,progress:vProgress,library:vLibrary,settings:vSettings}[S.page]||vStudy;$("#app").innerHTML=v();$("#abar").innerHTML=bottomBar();hydrate();badge();if(S.page==='settings')afterSettings()}
+const v={study:vStudy,practice:vPractice,progress:vProgress,library:vLibrary,settings:vSettings}[S.page]||vStudy;$("#app").innerHTML=v();$("#abar").innerHTML=bottomBar();if(S.page==='practice'){const ids=sessIds(),i=S.sess.idx,w=ids.slice(i,i+6).map(x=>qMap[x]).filter(Boolean);primeUrls(w.flatMap(q=>[q.question_img,q.answer_img]),w.slice(1,3).map(q=>q.question_img))}hydrate();badge();if(S.page==='settings')afterSettings()}
 /* ================= dialogs (PIN protected confirmations) ================= */
 function dialog(o){return new Promise(res=>{S.dlg={...o,res};drawDlg();setTimeout(()=>{const i=$('#pin1');if(i)i.focus()},60)})}
 function drawDlg(){const d=S.dlg,el=$('#modal');if(!d){el.innerHTML='';return}const need=d.pin&&!S.pin;
@@ -176,7 +181,7 @@ async function insertQ(c,o){const id=uid(),qp=`${id}/q.${ext(o.qBlob)}`,ap=o.aBl
  if(ap){r=await sb.storage.from(CF.bucket).upload(ap,o.aBlob,{contentType:o.aBlob.type||'image/webp'});if(r.error)throw r.error}
  const pos=Math.max(0,...QA.filter(q=>q.part===c.part&&q.source_id===c.source_id&&q.branch_id===c.branch_id).map(q=>q.position))+1;
  const row={id,part:c.part,source_id:c.source_id,branch_id:c.branch_id,chapter_id:c.chapter_id,position:pos,n_options:o.n,correct_option:o.key||null,question_img:qp,answer_img:ap,content_hash:o.hash};
- r=await sb.from('questions').insert(row);if(r.error)throw r.error;QA.push({...row,status:'published',current_version:1});return row}
+ r=await sb.from('questions').insert(row);if(r.error)throw r.error;QA.push({...row,status:'published',current_version:1});if(HASH&&o.hash)HASH.add(o.hash);return row}
 /* ---- add one question ---- */
 function shAdd(s){const txt=s.mode==='text';return{title:t('addQ'),html:`<div class=seg><button class="${txt?'on':''}" data-a=addmode data-v=text>${t('fromText')}</button><button class="${!txt?'on':''}" data-a=addmode data-v=img>${t('fromImages')}</button></div><h4>${t('classif')}</h4>${classSel()}`+
 (txt?`<label class=fl>${t('stem')}<textarea id=a_stem rows=5></textarea></label><div id=a_opts>${[0,1,2,3,4].map(i=>`<label class=fl>${t('optionN')} ${'ABCDEFGH'[i]}<input type=text class=a_o></label>`).join('')}</div><div class=f2><button class="btn s g" data-a=addopt>${t('addOpt')}</button></div><div class=fg><label>${t('answerKey')}<select id=a_key>${'ABCDEFGH'.split('').map(l=>`<option>${l}</option>`).join('')}</select></label></div><label class=fl>${t('explanation')}<textarea id=a_exp rows=4></textarea></label><div class=f2><button class="btn g" data-a=addprev>${t('preview')}</button></div><div id=a_pv></div>`
@@ -187,7 +192,7 @@ async function addSave(){const e=$('#a_err'),c=readClass();try{let qB,aB,n,key=$
  if(S.sheet.mode==='text'){const stem=$('#a_stem').value.trim(),o=[...document.querySelectorAll('.a_o')].map(i=>i.value.trim()).filter(Boolean);if(stem.length<8)return e.textContent=t('stem');if(o.length<2)return e.textContent=t('optionN');if('ABCDEFGH'.indexOf(key)>=o.length)return e.textContent=t('answerKey');
   const r=await drawQuestion(stem,o,key,$('#a_exp').value.trim());qB=r.q;aB=r.a;n=o.length;hash=await sha(norm(stem)+'|'+o.map(norm).join('|'))}
  else{const f=$('#a_qf').files[0];if(!f)return e.textContent=t('qImage');qB=f;aB=$('#a_af').files[0]||null;n=+$('#a_n').value;hash=await sha(await f.arrayBuffer())}
- if(QA.some(q=>q.content_hash===hash))return e.textContent=t('dupQ');
+ if((await hashes()).has(hash))return e.textContent=t('dupQ');
  const row=await insertQ(c,{qBlob:qB,aBlob:aB,key,n,hash});log('add','question',{id:row.id,mode:S.sheet.mode});closeSheet();await load();render();toast(t('saved'))}catch(x){e.textContent=t('saveFail')+': '+(x.message||x)}}
 /* ---- edit ---- */
 function shEdit(s){const q=qMap[s.id];return{title:t('editQ'),html:`<img class=qi data-p="${esc(q.question_img)}" alt="">`+classSel({part:q.part,src:q.source_id,br:q.branch_id,ch:q.chapter_id})+`<div class=fg><label>${t('answerKey')}<select id=e_key><option value="">—</option>${'ABCDEFGH'.split('').map(l=>`<option ${q.correct_option===l?'selected':''}>${l}</option>`).join('')}</select></label><label>${t('nOpts')}<select id=e_n>${[2,3,4,5,6,7,8].map(n=>`<option ${n===(q.n_options||5)?'selected':''}>${n}</option>`).join('')}</select></label></div><label class=fl>${t('qImage')} — ${t('changeImg')}<input type=file id=e_qf accept="image/*"></label><label class=fl>${t('aImage')} — ${t('changeImg')}<input type=file id=e_af accept="image/*"></label><div class=dac><button class="btn g" data-a=sclose>${t('cancel')}</button><button class="btn a" data-a=editsave>${t('save')}</button></div><p class=err id=a_err></p>`}}
@@ -252,7 +257,7 @@ function normRow(o){const g=(...ks)=>{for(const k of ks){const v=o[k];if(v!==und
  if(Array.isArray(o.options))opts=o.options.map(String);else if(o.options&&typeof o.options==='object')opts=Object.values(o.options).map(String);
  else for(let i=0;i<8;i++){const L='abcdefgh'[i],v=g(L,'option '+L,'option_'+L,'opt '+L,'opt_'+L,'option'+L,L+')','choice '+L);if(!v)break;opts.push(v)}
  return{stem:g('question','stem','q','text','question text'),opts,ans:g('answer','key','correct','correct answer','correct_option','correct option'),expl:g('explanation','rationale','exp','explain'),part:g('part','mrcp part'),source:g('source'),year:g('year'),branch:g('branch','specialty','speciality','category'),chapter:g('chapter','topic')}}
-async function analyzeRows(raw,d){const seen=new Set(QA.map(q=>q.content_hash)),out=[];
+async function analyzeRows(raw,d){const seen=new Set(await hashes()),out=[];
  for(let i=0;i<raw.length;i++){const r=normRow(raw[i]),msgs=[],info=[];let part=d.part;if(r.part){const m=String(r.part).match(/[12]/);if(m)part=+m[0];else msgs.push('part')}
   if(r.stem.length<8)msgs.push(t('stem'));if(r.opts.length<2)msgs.push(t('optionN'));
   let key=null;if(r.ans){const a=r.ans.trim();if(/^[A-Ha-h]$/.test(a))key=a.toUpperCase();else if(/^[1-8]$/.test(a))key='ABCDEFGH'[+a-1];else{const ix=r.opts.findIndex(o=>norm(o)===norm(a));if(ix>=0)key='ABCDEFGH'[ix]}}
@@ -280,7 +285,7 @@ async function runFile(){const s=S.sheet,ok=s.items.filter(x=>x.status==='ok'),r
  s.errs=errs;s.res=res;s.step='done';log('import','questions',{file:s.fname,...res});await load();drawSheet();render()}
 async function onPackPicked(files){const e=$('#i_err');files=[...files];const pj=files.find(f=>f.name==='pack.json');let meta=null;if(pj)try{meta=JSON.parse(await pj.text())}catch(x){return e.textContent='pack.json'}
  const re=/^(\d+).*?_([qa])\.\w+$/i,im=files.filter(f=>f!==pj);if(!im.length||!im.every(f=>re.test(f.name)))return e.textContent=t('fileInvalid');
- const d={};im.forEach(f=>{const x=f.name.match(re);(d[+x[1]]=d[+x[1]]||{})[x[2].toLowerCase()]=f});const keys=Object.keys(d).map(Number).sort((a,b)=>a-b).filter(k=>d[k].q),seen=new Set(QA.map(q=>q.content_hash)),items=[];
+ const d={};im.forEach(f=>{const x=f.name.match(re);(d[+x[1]]=d[+x[1]]||{})[x[2].toLowerCase()]=f});const keys=Object.keys(d).map(Number).sort((a,b)=>a-b).filter(k=>d[k].q),seen=new Set(await hashes()),items=[];
  S.sheet.step='run';for(let i=0;i<keys.length;i++){const f=d[keys[i]];if(i%20==0){S.sheet.msg=`${t('files')}: ${i} / ${keys.length}`;drawSheet()}const h=await sha(await f.q.arrayBuffer()),k=f.q.name.match(/_k([A-H])_/i),n=f.q.name.match(/_n(\d)_/),c=f.q.name.match(/_(c\d+)_/);
   items.push({q:f.q,a:f.a||null,hash:h,key:k?k[1].toUpperCase():null,n:n?+n[1]:5,cid:c?c[1]:null,status:seen.has(h)?'dup':'ok'});seen.add(h)}
  S.sheet.items=items;S.sheet.meta=meta;S.sheet.step='preview';S.sheet.tab='pack';drawSheet()}

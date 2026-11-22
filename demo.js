@@ -1,6 +1,6 @@
 /* In-memory demo backend: same calls the app makes to Supabase, nothing is saved or sent anywhere. */
 window.makeDemoClient=function(){
-const uid=()=>crypto.randomUUID(),now=()=>new Date().toISOString(),T={},files={};
+const LAT=+new URLSearchParams(location.search).get('lat')||0,uid=()=>crypto.randomUUID(),now=()=>new Date().toISOString(),T={},files={};
 const wrap=(s,n)=>{const w=s.split(' ');const o=[];let l='';w.forEach(x=>{if((l+' '+x).length>n){o.push(l);l=x}else l=(l?l+' ':'')+x});if(l)o.push(l);return o};
 const svg=(lines,h)=>'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="640" height="${h}"><rect width="100%" height="100%" fill="#fff"/>${lines}</svg>`);
 const tx=(y,s,x=30,sz=16,c='#222',w='normal')=>`<text x="${x}" y="${y}" font-family="Helvetica,Arial,sans-serif" font-size="${sz}" fill="${c}" font-weight="${w}">${s.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</text>`;
@@ -44,7 +44,7 @@ function qb(t){const st={f:[],ord:null,asc:true,lo:0,hi:1e9,op:'select',row:null
    D[t].push(r);out.push(r)});return ret(st.single?cp(out[0]):cp(out))}
   if(st.op==='update'){const hit=D[t].filter(x=>st.f.every(f=>f(x)));hit.forEach(x=>{Object.assign(x,st.patch);if(t==='questions')x.updated_at=now()});return ret(cp(hit))}
  }catch(e){return{data:null,error:{message:String(e)}}}}
- b.then=(a,z)=>Promise.resolve(run()).then(a,z);return b}
+ b.then=(a,z)=>new Promise(r=>setTimeout(r,LAT)).then(run).then(a,z);return b}
 return{auth:{getSession:async()=>ret({session:{user:{email:'demo@example.com'}}}),onAuthStateChange:()=>{},signOut:async()=>{location.href=location.pathname},signInWithPassword:async()=>({error:null}),resetPasswordForEmail:async()=>({error:null}),updateUser:async()=>({error:null})},
  from:qb,
  rpc:async(n,a)=>{if(n==='set_mark'){const r=D.question_state.find(x=>x.question_id===a.p_question);if(r){r.marked=a.p_marked;r.updated_at=a.p_at}else D.question_state.push({question_id:a.p_question,marked:a.p_marked,updated_at:a.p_at})}
