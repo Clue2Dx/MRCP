@@ -64,7 +64,7 @@ fetchAll(()=>sb.from('question_state').select('question_id').eq('marked',true).o
 for(const x of[s,b,c,pf])if(x.error)throw x.error;
 const d={R:{sources:s.data,branches:b.data,chapters:c.data},QA:qs,A:at,M:mk.map(x=>x.question_id),ME:pf.data},str=JSON.stringify(d),changed=str!==localStorage.getItem('cache2');try{localStorage.setItem('cache2',str)}catch(e){}apply(d);return changed}
 catch(e){const d=LS.get('cache2');if(!d)throw e;apply(d);toast(t('offlineMode'));return true}}
-function applyUI(){document.body.classList.toggle('rail',S.rail);const dk=S.theme==='dark'||(S.theme==='auto'&&matchMedia('(prefers-color-scheme: dark)').matches);document.body.classList.toggle('dark',dk);document.documentElement.lang=S.lang;document.documentElement.dir=S.lang==='ar'?'rtl':'ltr'}
+function applyUI(){document.body.classList.toggle('rail',S.rail);const dk=S.theme==='dark'||(S.theme==='auto'&&matchMedia('(prefers-color-scheme: dark)').matches);document.body.classList.toggle('dark',dk);LS.set('theme2',S.theme);const mc=document.querySelector('meta[name=theme-color]');if(mc)mc.content=dk?'#0b0b0d':'#ffffff';document.documentElement.style.background=dk?'#0b0b0d':'#ffffff';document.documentElement.lang=S.lang;document.documentElement.dir=S.lang==='ar'?'rtl':'ltr'}
 let HASH=null;async function hashes(){if(!HASH){const r=await fetchAll(()=>sb.from('questions').select('id,content_hash').order('id'));HASH=new Set(r.map(x=>x.content_hash).filter(Boolean))}return HASH}
 /* ================= helpers ================= */
 const stat=L=>{const a=L.filter(q=>A[q.id]&&A[q.id].ok!=null),c=a.filter(q=>A[q.id].ok).length;return{n:a.length,c,w:a.length-c,pct:a.length?Math.round(c/a.length*100):0,tot:L.length,prog:L.length?Math.round(a.length/L.length*100):0}};
