@@ -73,3 +73,12 @@ select,input[type=text],input[type=search],input[type=password],input[type=email
 .tt{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:12px 18px;border-radius:14px;font-size:13px;z-index:70;max-width:90vw}
 .lg{max-width:380px;margin:9vh auto;display:grid;gap:10px}.lg .brand{font-size:26px;font-weight:800}.lg .brand span{color:var(--ac)}.sy{font-size:11px;color:var(--mu)}.sy.w{color:var(--am)}
 .splash{display:grid;place-items:center;height:60vh;font-size:30px;font-weight:800;color:var(--tx)}.splash b{color:var(--ac)}
+
+/* text questions / medical images */
+.qt{line-height:1.65;font-size:16px;padding:8px 10px;color:#222;word-break:break-word}
+.qcard img.qi+img.qi{margin-top:10px}
+.ops.txt{flex-direction:column;flex-wrap:nowrap;align-items:stretch;gap:8px}
+.ops.txt .op{width:auto;height:auto;min-height:48px;border-radius:14px;display:flex;align-items:center;gap:12px;text-align:start;padding:10px 14px;font-weight:500;font-size:16px;color:var(--tx)}
+.ops.txt .ol{flex:0 0 28px;height:28px;border-radius:50%;border:2px solid var(--ln);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.ops.txt .ot{flex:1;line-height:1.45}
+.ops.txt .op.sel .ol,.ops.txt .op.good .ol,.ops.txt .op.bad .ol{border-color:#fff}
