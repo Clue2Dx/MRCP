@@ -417,3 +417,22 @@ boot();
 document.addEventListener('touchend',function(e){if(e.touches.length||e.changedTouches.length!==1)return;const n=Date.now();
 if(n-last<350&&!(e.target.closest&&e.target.closest(skip)))e.preventDefault();last=n},{passive:false});
 document.addEventListener('dblclick',function(e){if(!(e.target.closest&&e.target.closest('input,textarea,select')))e.preventDefault()},{passive:false})})();
+
+/* smooth pinch-zoom + pan on question/answer images (transform based) */
+(function(){const MAX=5;let g=null;
+const D=(a,b)=>Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY),M=(a,b)=>({x:(a.clientX+b.clientX)/2,y:(a.clientY+b.clientY)/2});
+const Z=i=>i.__z||(i.__z={s:1,x:0,y:0});
+function put(c,i,z){const w=i.offsetWidth,h=i.offsetHeight;z.s=Math.min(MAX,Math.max(1,z.s));z.x=Math.min(0,Math.max(w-w*z.s,z.x));z.y=Math.min(0,Math.max(h-h*z.s,z.y));
+ i.style.transform=z.s===1?'':`translate3d(${z.x}px,${z.y}px,0) scale(${z.s})`;c.classList.toggle('zoomed',z.s>1)}
+document.addEventListener('touchstart',function(e){const c=e.target.closest&&e.target.closest('.qcard');if(!c){g=null;return}const i=c.querySelector('img.qi');if(!i){g=null;return}const z=Z(i),T=e.touches;
+ if(T.length===2){const m=M(T[0],T[1]),r=i.getBoundingClientRect(),w=i.offsetWidth||1;
+  /* r is the transformed rect: use untransformed origin */
+  const ox=r.left-z.x,oy=r.top-z.y;g={k:'p',c,i,z,d0:D(T[0],T[1])||1,s0:z.s,cx:(m.x-ox-z.x)/z.s,cy:(m.y-oy-z.y)/z.s,ox,oy}}
+ else if(T.length===1&&z.s>1){g={k:'m',c,i,z,sx:T[0].clientX,sy:T[0].clientY,x0:z.x,y0:z.y}}
+ else g=null},{passive:true});
+document.addEventListener('touchmove',function(e){if(!g)return;const T=e.touches;
+ if(g.k==='p'&&T.length===2){e.preventDefault();const m=M(T[0],T[1]),z=g.z;z.s=g.s0*D(T[0],T[1])/g.d0;z.s=Math.min(MAX,Math.max(1,z.s));z.x=m.x-g.ox-g.cx*z.s;z.y=m.y-g.oy-g.cy*z.s;put(g.c,g.i,z)}
+ else if(g.k==='m'&&T.length===1){e.preventDefault();const z=g.z;z.x=g.x0+T[0].clientX-g.sx;z.y=g.y0+T[0].clientY-g.sy;put(g.c,g.i,z)}},{passive:false});
+const end=e=>{if(g&&g.z.s<1.04){g.z.s=1;g.z.x=0;g.z.y=0;put(g.c,g.i,g.z)}if(!e.touches.length||g&&g.k==='p')g=null};
+document.addEventListener('touchend',end,{passive:true});document.addEventListener('touchcancel',end,{passive:true});
+['gesturestart','gesturechange'].forEach(n=>document.addEventListener(n,function(e){if(e.target.closest&&e.target.closest('.qcard'))e.preventDefault()},{passive:false}))})();
