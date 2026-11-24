@@ -98,3 +98,9 @@ body{overflow:visible}
 #nav .ni{padding:7px 4px;border-radius:16px;gap:3px;font-size:11px;font-weight:600;color:var(--mu);transition:background .15s,color .15s}
 #nav .ni.on{background:var(--as);color:var(--ac)}
 }
+
+/* tighter bottom bar: no extra empty space under the buttons */
+@media(max-width:899px){
+#nav{padding:6px 10px calc(3px + env(safe-area-inset-bottom) * .35)}
+#nav .ni{padding:6px 4px}
+}
