@@ -46,7 +46,7 @@ function log(action,entity,details){const e={action,entity,details:details||{},a
  if(ACT)sb.from('activity_log').insert({action,entity,details:details||{}}).then(r=>{if(r&&r.error)ACT=false})}
 /* ================= auth & data ================= */
 function loginView(msg){$('#nav').innerHTML='';$('#app').innerHTML=`<div class=lg><div class=brand>MRCP <span>Prep</span></div><h1>${t('signIn')}</h1><input type=email id=em placeholder="${t('email')}" autocomplete=username><input type=password id=pw placeholder="${t('password')}" autocomplete=current-password><button class="btn p" data-a=login>${t('signIn')}</button><button class="btn g" data-a=forgot>${t('forgot')}</button><button class="btn g" data-a=demo>${t('tryDemo')}</button><p class=t>${esc(msg||'')}</p><p class=t><button class=lk data-a=lang data-v=${S.lang==='ar'?'en':'ar'}>${S.lang==='ar'?'English':'العربية'}</button></p></div>`}
-async function boot(){applyUI();const{data:{session}}=await sb.auth.getSession();
+async function boot(){applyUI();let session;try{const r=await Promise.race([sb.auth.getSession(),new Promise((_,no)=>setTimeout(()=>no(Error('auth timeout')),6000))]);session=r.data.session}catch(e){const d=LS.get('cache2');if(d){apply(d);render();return toast(t('offlineMode'))}return loginView(String(e.message||e))}
 if(!session){const d=LS.get('cache2');if(!navigator.onLine&&d){apply(d);render();return toast(t('offlineMode'))}return loginView()}
 const cached=LS.get('cache2');
 if(cached){apply(cached);render();flush();load().then(ch=>{if(ch)render()}).catch(()=>{})}
