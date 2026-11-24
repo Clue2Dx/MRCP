@@ -104,3 +104,9 @@ body{overflow:visible}
 #nav{padding:6px 10px calc(3px + env(safe-area-inset-bottom) * .35)}
 #nav .ni{padding:6px 4px}
 }
+
+/* landscape phones: question action bar slides away while reading */
+@media(orientation:landscape) and (max-height:500px){
+body[data-page=practice] #abar{transition:transform .25s ease}
+body[data-page=practice].abhide #abar{transform:translateY(calc(100% + 24px))}
+}

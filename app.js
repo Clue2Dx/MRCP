@@ -141,7 +141,7 @@ function bottomBar(){if(S.page==='practice'){const ids=sessIds();if(!ids.length)
  return`<div class=abar><button class="btn g ic" data-a=prev ${se.idx?'':'disabled'} aria-label="${t('prev')}">${flip('back')}</button><button class="btn p grow" data-a=${s.rev?'next':'ans'}>${s.rev?(last?t('finish'):t('next')):t('check')}</button><button class="btn g ic" data-a=skip ${last?'disabled':''} aria-label="${t('next')}">${flip('chev')}</button></div>`}
  if(S.page==='library'&&S.lib.sel.size&&(S.lib.tab==='q'||S.lib.tab==='trash')){const trash=S.lib.tab==='trash';return`<div class=abar><div class=selbar><b>${S.lib.sel.size} ${t('selected')}</b>${trash?`<button class="btn s a" data-a=lresel>${t('restore')}</button><button class="btn s d" data-a=lpurgesel>${t('purge')}</button>`:`<button class="btn s g" data-a=lmove>${t('moveSel')}</button><button class="btn s d" data-a=ldelsel>${t('del')}</button>`}<button class="btn s g" data-a=lclear>${t('clear')}</button></div></div>`}return''}
 /* ================= render ================= */
-function render(){document.body.dataset.page=S.page;if($('#nav').firstChild||S.page)$('#nav').innerHTML=navHtml();$('#app').style.zoom=S.zoom/100;
+function render(){document.body.classList.remove('abhide');document.body.dataset.page=S.page;if($('#nav').firstChild||S.page)$('#nav').innerHTML=navHtml();$('#app').style.zoom=S.zoom/100;
 const v={study:vStudy,practice:vPractice,progress:vProgress,library:vLibrary,settings:vSettings}[S.page]||vStudy;$("#app").innerHTML=v();$("#abar").innerHTML=bottomBar();if(S.page==='practice'){const ids=sessIds(),i=S.sess.idx,w=ids.slice(i,i+6).map(x=>qMap[x]).filter(Boolean);primeUrls(w.flatMap(q=>[q.question_img,q.answer_img]),w.slice(1,3).map(q=>q.question_img))}hydrate();badge();if(S.page==='settings'||(S.page==='library'&&S.lib.tab==='dl'))afterSettings()}
 /* ================= dialogs (PIN protected confirmations) ================= */
 function dialog(o){return new Promise(res=>{S.dlg={...o,res};drawDlg();setTimeout(()=>{const i=$('#pin1');if(i)i.focus()},60)})}
@@ -469,3 +469,10 @@ boot();
 document.addEventListener('touchend',function(e){if(e.touches.length||e.changedTouches.length!==1)return;const n=Date.now();
 if(n-last<350&&!(e.target.closest&&e.target.closest(skip)))e.preventDefault();last=n},{passive:false});
 document.addEventListener('dblclick',function(e){if(!(e.target.closest&&e.target.closest('input,textarea,select')))e.preventDefault()},{passive:false})})();
+
+/* landscape phones: hide the bottom action bar while scrolling down, show it again on scroll up / at the end */
+(function(){const last=new WeakMap();let lw=0;
+const PH=matchMedia('(orientation:landscape) and (max-height:500px)');
+document.addEventListener('scroll',function(e){if(S.page!=='practice'||!PH.matches)return;const d=e.target===document?document.scrollingElement:e.target;if(!d||d.scrollTop===undefined)return;
+ const y=d.scrollTop,p=last.has(d)?last.get(d):y;last.set(d,y);const dy=y-p,end=y+d.clientHeight>=d.scrollHeight-12;
+ if(y<40||end||dy<-6)document.body.classList.remove('abhide');else if(dy>6)document.body.classList.add('abhide')},true)})();
