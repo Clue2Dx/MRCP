@@ -90,3 +90,11 @@ main{order:1;flex:1 1 auto;min-height:0;width:100%;overflow-y:auto;overscroll-be
 #nav{order:2;position:static;flex:none;width:100%;border-top:1px solid var(--ln);padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
 body[data-page=practice] main{padding-bottom:calc(90px + env(safe-area-inset-bottom))}
 }
+
+/* mobile bottom bar: clean look, same colour as the page so nothing dark can show beneath it */
+@media(max-width:899px){
+body{overflow:visible}
+#nav{background:var(--bg);border-top:1px solid var(--ln);box-shadow:0 120px 0 0 var(--bg);padding:8px 10px calc(8px + env(safe-area-inset-bottom));gap:4px}
+#nav .ni{padding:7px 4px;border-radius:16px;gap:3px;font-size:11px;font-weight:600;color:var(--mu);transition:background .15s,color .15s}
+#nav .ni.on{background:var(--as);color:var(--ac)}
+}
