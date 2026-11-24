@@ -80,3 +80,13 @@ select,input[type=text],input[type=search],input[type=password],input[type=email
 #app{touch-action:manipulation}
 @media(max-width:899px){#nav{display:flex}#nav .sp,#nav .sy,#nav .brand,#nav .tog{display:none}#nav .ni{flex:1 1 0;min-width:0;width:auto}}
 button[data-a=dlg]:disabled{opacity:.55}
+
+/* mobile shell: nav is a normal flex item (never floats), content scrolls inside main */
+#nav:empty{display:none}
+@media(max-width:899px){
+html,body{height:100%;overflow:hidden}
+body{display:flex;flex-direction:column;height:100vh;height:100dvh}
+main{order:1;flex:1 1 auto;min-height:0;width:100%;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-bottom:28px}
+#nav{order:2;position:static;flex:none;width:100%;border-top:1px solid var(--ln);padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
+body[data-page=practice] main{padding-bottom:calc(90px + env(safe-area-inset-bottom))}
+}

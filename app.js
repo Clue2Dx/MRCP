@@ -9,6 +9,7 @@ const DEV=LS.get('dev')||(()=>{const d=uid();LS.set('dev',d);return d})();
 const sha=async t=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',typeof t==='string'?new TextEncoder().encode(t):t))].map(b=>b.toString(16).padStart(2,'0')).join('');
 function dl(name,obj){const b=new Blob([typeof obj==='string'?obj:JSON.stringify(obj,null,1)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),8000)}
 async function fetchAll(mk){let out=[],f=0;for(;;){const{data,error}=await mk().range(f,f+999);if(error)throw error;out.push(...data);if(data.length<1000)break;f+=1000}return out}
+const top0=()=>{scrollTo(0,0);const m=document.querySelector('#app');if(m)m.scrollTop=0};
 const day=()=>new Date().toISOString().slice(0,10);
 /* ================= i18n ================= */
 const T={en:{study:'Study',progress:'Progress',library:'Library',settings:'Settings',part:'Part',allSources:'All sources',source:'Source',branch:'Branch',chapter:'Chapter',branches:'Branches',chapters:'Chapters',allChapters:'All chapters (mixed)',unclassified:'No chapter',cont:'Continue where you left off',start:'Start',all:'All',unanswered:'Unanswered',incorrect:'Incorrect',marked:'Marked',correct:'Correct',qs:'questions',answered:'answered',accuracy:'accuracy',overall:'Overall progress',question:'Question',check:'Check answer',next:'Next',prev:'Previous',finish:'Finish',reattempt:'Reattempt',mark:'Mark for review',unmark:'Marked for review',pickFirst:'Choose an answer first',attempts:'Attempts',history:'Attempt history',noKey:'No answer key set',answerIs:'Correct answer',back:'Back',jump:'Jump to question',empty:'No questions here yet.',emptyHint:'Open Library to add questions.',done:'Done',left:'Left',recent:'Recent attempts',wrongList:'Incorrect questions',markedList:'Marked for review',none:'None',open:'Open',retry:'Retry',branchWord:'Branch',search:'Search by number, branch, chapter or source…',tabQ:'Questions',tabTrash:'Trash',tabTax:'Divisions',tabDl:'Downloads',tabLog:'Activity',add:'Add',importQ:'Import',edit:'Edit',del:'Delete',restore:'Restore',moveSel:'Move',selected:'selected',selectAll:'Select all',clear:'Clear',noMatch:'No matching questions',showMore:'Show more',any:'Any',state:'State',trashEmpty:'Trash is empty.',trashNote:'Deleted questions stay here and keep their answer history. Nothing is erased permanently.',cancel:'Cancel',confirm:'Confirm',save:'Save',close:'Close',delTitle:'Move to Trash?',delBody:'{n} question(s) will be moved to Trash. Answer history is never deleted ({h} with history).',moveTrash:'Move to Trash',pinNeeded:'Deletion PIN',enterPin:'Enter your PIN',newPin:'New PIN (4+ digits)',confirmPin:'Repeat PIN',createPinMsg:'Create a PIN to protect deletions. You can change it in Settings.',wrongPin:'Incorrect PIN',pinShort:'PIN must be at least 4 characters',pinMismatch:'PINs do not match',backupAuto:'A safety snapshot is saved in the app, and the items stay recoverable.',taxDelTitle:'Delete this item?',taxDelBody:'“{n}” is used by {c} question(s). They will be hidden from study, but their answers and history are kept. You can restore the item later.',taxRename:'Rename',taxHidden:'Hidden',addQ:'Add question',fromText:'From text',fromImages:'From images',stem:'Question text',optionN:'Option',addOpt:'+ Option',answerKey:'Correct answer',explanation:'Explanation',qImage:'Question image',aImage:'Answer / explanation image',preview:'Preview',saved:'Saved',saveFail:'Could not save',impTitle:'Import questions',impFile:'Spreadsheet or JSON',impPack:'Image pack',impPick:'Choose a file (CSV, JSON or Excel)',impCols:'Columns: question, a, b, c, d, e, answer, explanation — optional: part, source, year, branch, chapter',defaults:'Used when a row has no value:',valid:'Valid',dup:'Duplicate',err:'Error',rows:'rows',willCreate:'will be created',confirmImp:'Import {n} questions',summary:'Import summary',added:'Added',skipped:'Skipped',errorsN:'With errors',dlErrors:'Download errors',fileInvalid:'Could not read this file',editQ:'Edit question',changeImg:'Replace image (optional)',classif:'Classification',nOpts:'Options',noLog:'No activity yet.',logLocal:'Activity is stored on this device only. Run the optional activity-log SQL to sync it.',lang:'Language',appearance:'Appearance',auto:'Auto',light:'Light',dark:'Dark',pageSize:'Page size',defaults2:'Study defaults',defPart:'Default part',defSrc:'Default source',pin:'Deletion PIN',pinSet:'PIN is set',pinUnset:'No PIN yet',setPin:'Set PIN',changePin:'Change PIN',removePin:'Remove PIN',offline:'Offline — download by branch',download:'Download',remove:'Remove',notDl:'Not downloaded',onDevice:'On device ✓',partial:'Partial',offNote:'Images are stored on this device only when you press Download. Remove deletes them from this device only.',backup:'Backup & recovery',expP:'Export my progress',impP:'Import progress (merge)',expB:'Export question bank (metadata)',syncNow:'Retry sync',account:'Account',signOut:'Sign out',refresh:'Refresh data',demoBanner:'Demo mode — sample data, nothing is saved',signIn:'Sign in',email:'Email',password:'Password',forgot:'Forgot password',tryDemo:'Try the demo',resetSent:'Reset link sent',offlineMode:'Offline — using saved data',pending:'pending',synced:'Synced',syncing:'Syncing',offlineS:'Offline',num:'#',files:'files',pairs:'questions',newQ:'New',dupQ:'Already in library',noAns:'No answer image',startImp:'Import now',picked:'Selected',movedOk:'Updated',trashed:'Moved to Trash',restored:'Restored',impBlocked:'Nothing valid to import',classWhere:'Classification for new questions',apply:'Apply',moveTitle:'Move selected questions',keep:'Keep as is',weakest:'Needs attention',streak:'Today',todayN:'answered today',snaps:'Safety snapshots',snapNote:'Saved automatically before bulk deletes and moves (last 5). Undo puts the questions back.',undo:'Undo',sources:'Sources',trashQ:'Questions',trashT:'Divisions',addTax:'Add division',whereAdd:'Where to add',namesHint:'one name per line',name:'Name',year:'Year (optional)',dlAll:'Download all',taxEmpty:'Nothing here yet.',taxSearch:'Search…',default:'Default',defBr:'Default branch',defNote:'Used in Study, Progress, Library and when adding questions.',exists:'Already exists',addedN:'Added {n}',taxTrashNote:'Deleted divisions keep their questions and history. Restore anytime.',purge:'Delete forever',purgeTitle:'Delete permanently?',purgeBody:'{n} question(s) will be erased for good, with their images and answer history ({h} with history). This cannot be undone.',purged:'Deleted permanently',snapEmpty:'No snapshots yet.'},
@@ -395,7 +396,7 @@ if(a==='logout'){await sb.auth.signOut();return}
 if(a==='refresh'){await flush();await load();return render()}
 if(a==='sync'){await flush();toast(QU.length?`${t('pending')}: ${QU.length}`:t('synced'));return render()}
 if(a==='navtoggle'){S.rail=!S.rail;LS.set('rail',S.rail);return applyUI()}
-if(a==='page'){S.page=v;if(v==='library')S.logRows=null}
+if(a==='page'){if(v==='study'&&S.page==='study')S.br=null;S.page=v;if(v==='library')S.logRows=null}
 else if(a==='part'){S.part=+v;S.br=null}
 else if(a==='br'){S.br=v;S.kind='all';S.page='study'}
 else if(a==='brback')S.br=null;
@@ -406,9 +407,9 @@ else if(a==='exit')S.page='study';
 else if(a==='sel'&&q&&!stOf(q).rev)cur[q.id]={sel:v};
 else if(a==='ans'&&q){const s=stOf(q);if(!s.sel)return toast(t('pickFirst'));const at=new Date().toISOString(),row={id:uid(),question_id:q.id,selected:s.sel,answered_at:at,device_id:DEV};
  A[q.id]={sel:s.sel,ok:q.correct_option?s.sel===q.correct_option:null,at};delete cur[q.id];hist[q.id]=[{selected:s.sel,is_correct:A[q.id].ok,answered_at:at},...(hist[q.id]||[])].slice(0,8);enqueue({k:'att',row})}
-else if(a==='next'||a==='skip'){const ids=sessIds();if(se.idx>=ids.length-1){S.page='study';savePos()}else{se.idx++;savePos();scrollTo(0,0)}}
-else if(a==='prev'){se.idx=Math.max(0,se.idx-1);savePos();scrollTo(0,0)}
-else if(a==='jump'){se.idx=+v;closeSheet();savePos();scrollTo(0,0)}
+else if(a==='next'||a==='skip'){const ids=sessIds();if(se.idx>=ids.length-1){S.page='study';savePos()}else{se.idx++;savePos();top0()}}
+else if(a==='prev'){se.idx=Math.max(0,se.idx-1);savePos();top0()}
+else if(a==='jump'){se.idx=+v;closeSheet();savePos();top0()}
 else if(a==='navsheet')return openSheet({type:'nav'});
 else if(a==='mark'&&q){const m=!M.has(q.id);m?M.add(q.id):M.delete(q.id);enqueue({k:'mark',q:q.id,m,at:new Date().toISOString()})}
 else if(a==='retry'){if(q&&q.id===v)cur[v]={sel:null};else{openFrom([v],v);cur[v]={sel:null}}}
@@ -444,7 +445,7 @@ else if(a==='errdl'){const r=S.sheet.errs||[];dl(`import-errors-${day()}.csv`,'r
 else if(a.startsWith('tax'))return taxAct(a,el.dataset.k,v);
 else return;
 if(S.page!=='library'||['ltab','tog','selall','lclear','more','page'].includes(a)||a==='page'){render()}else render();
-if(['next','prev','skip','jump','start','br','page'].includes(a))scrollTo(0,0)}
+if(['next','prev','skip','jump','start','br','page'].includes(a))top0()}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;S.evt=e.target;const a=b.dataset.a;if(a==='sclose'&&b.classList.contains('ov2')&&e.target!==b)return;act(a,b.dataset.v,b)});
 document.addEventListener('input',e=>{const c=e.target.dataset.c;if(c==='zoom'){S.zoom=+e.target.value;$('#app').style.zoom=S.zoom/100;const z=$('#zv');if(z)z.textContent=S.zoom+'%'}
  else if(c==='lq'){S.lib.q=e.target.value;S.lib.n=60;$('#liblist').innerHTML=libList()}else if(c==='tq'){S.lib.tq=e.target.value;$('#taxlist').innerHTML=taxList()}});
@@ -468,22 +469,3 @@ boot();
 document.addEventListener('touchend',function(e){if(e.touches.length||e.changedTouches.length!==1)return;const n=Date.now();
 if(n-last<350&&!(e.target.closest&&e.target.closest(skip)))e.preventDefault();last=n},{passive:false});
 document.addEventListener('dblclick',function(e){if(!(e.target.closest&&e.target.closest('input,textarea,select')))e.preventDefault()},{passive:false})})();
-
-/* smooth pinch-zoom + pan on question/answer images (transform based) */
-(function(){const MAX=5;let g=null;
-const D=(a,b)=>Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY),M=(a,b)=>({x:(a.clientX+b.clientX)/2,y:(a.clientY+b.clientY)/2});
-const Z=i=>i.__z||(i.__z={s:1,x:0,y:0});
-function put(c,i,z){const w=i.offsetWidth,h=i.offsetHeight;z.s=Math.min(MAX,Math.max(1,z.s));z.x=Math.min(0,Math.max(w-w*z.s,z.x));z.y=Math.min(0,Math.max(h-h*z.s,z.y));
- i.style.transform=z.s===1?'':`translate3d(${z.x}px,${z.y}px,0) scale(${z.s})`;c.classList.toggle('zoomed',z.s>1)}
-document.addEventListener('touchstart',function(e){const c=e.target.closest&&e.target.closest('.qcard');if(!c){g=null;return}const i=c.querySelector('img.qi');if(!i){g=null;return}const z=Z(i),T=e.touches;
- if(T.length===2){const m=M(T[0],T[1]),r=i.getBoundingClientRect(),w=i.offsetWidth||1;
-  /* r is the transformed rect: use untransformed origin */
-  const ox=r.left-z.x,oy=r.top-z.y;g={k:'p',c,i,z,d0:D(T[0],T[1])||1,s0:z.s,cx:(m.x-ox-z.x)/z.s,cy:(m.y-oy-z.y)/z.s,ox,oy}}
- else if(T.length===1&&z.s>1){g={k:'m',c,i,z,sx:T[0].clientX,sy:T[0].clientY,x0:z.x,y0:z.y}}
- else g=null},{passive:true});
-document.addEventListener('touchmove',function(e){if(!g)return;const T=e.touches;
- if(g.k==='p'&&T.length===2){e.preventDefault();const m=M(T[0],T[1]),z=g.z;z.s=g.s0*D(T[0],T[1])/g.d0;z.s=Math.min(MAX,Math.max(1,z.s));z.x=m.x-g.ox-g.cx*z.s;z.y=m.y-g.oy-g.cy*z.s;put(g.c,g.i,z)}
- else if(g.k==='m'&&T.length===1){e.preventDefault();const z=g.z;z.x=g.x0+T[0].clientX-g.sx;z.y=g.y0+T[0].clientY-g.sy;put(g.c,g.i,z)}},{passive:false});
-const end=e=>{if(g&&g.z.s<1.04){g.z.s=1;g.z.x=0;g.z.y=0;put(g.c,g.i,g.z)}if(!e.touches.length||g&&g.k==='p')g=null};
-document.addEventListener('touchend',end,{passive:true});document.addEventListener('touchcancel',end,{passive:true});
-['gesturestart','gesturechange'].forEach(n=>document.addEventListener(n,function(e){if(e.target.closest&&e.target.closest('.qcard'))e.preventDefault()},{passive:false}))})();
