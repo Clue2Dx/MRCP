@@ -49,5 +49,9 @@ return{auth:{getSession:async()=>ret({session:{user:{email:'demo@example.com'}}}
  from:qb,
  rpc:async(n,a)=>{if(n==='set_mark'){const r=D.question_state.find(x=>x.question_id===a.p_question);if(r){r.marked=a.p_marked;r.updated_at=a.p_at}else D.question_state.push({question_id:a.p_question,marked:a.p_marked,updated_at:a.p_at})}
   if(n==='purge_questions'){const ids=a.p_ids.filter(id=>(D.questions.find(q=>q.id===id)||{}).status==='archived');D.questions=D.questions.filter(q=>!ids.includes(q.id));D.attempts=D.attempts.filter(x=>!ids.includes(x.question_id));D.question_state=D.question_state.filter(x=>!ids.includes(x.question_id));return{data:ids.length,error:null}}
+  if(n==='purge_taxonomy'){const T={chapter:'chapters',branch:'branches',source:'sources'}[a.p_kind],ids=D[T].filter(x=>a.p_ids.includes(x.id)&&x.deleted_at).map(x=>x.id);
+   if(a.p_kind==='chapter')D.questions.forEach(q=>{if(ids.includes(q.chapter_id))q.chapter_id=null});
+   else{const f=a.p_kind==='branch'?'branch_id':'source_id',qi=D.questions.filter(q=>ids.includes(q[f])).map(q=>q.id);D.questions=D.questions.filter(q=>!qi.includes(q.id));D.attempts=D.attempts.filter(x=>!qi.includes(x.question_id));D.question_state=D.question_state.filter(x=>!qi.includes(x.question_id));if(a.p_kind==='branch')D.chapters=D.chapters.filter(c=>!ids.includes(c.branch_id))}
+   D[T]=D[T].filter(x=>!ids.includes(x.id));return{data:ids.length,error:null}}
   if(n==='save_settings'){D.profiles[0].settings=a.p_settings}if(n==='save_position'){D.profiles[0].position=a.p_position}return{error:null}},
  storage:{from:()=>({upload:async(p,f)=>{files[p]=URL.createObjectURL(f);return{error:null}},remove:async()=>({error:null}),createSignedUrl:async p=>ret({signedUrl:files[p]||''}),createSignedUrls:async ps=>ret(ps.map(p=>({path:p,signedUrl:files[p]||''})))})}}};
