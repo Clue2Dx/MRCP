@@ -67,7 +67,7 @@ for(const x of[s,b,c,pf])if(x.error)throw x.error;
 const d={R:{sources:s.data,branches:b.data,chapters:c.data},QA:qs,A:at,M:mk.map(x=>x.question_id),ME:pf.data},str=JSON.stringify(d),changed=str!==localStorage.getItem('cache2');try{localStorage.setItem('cache2',str)}catch(e){}apply(d);return changed}
 catch(e){const d=LS.get('cache2');if(!d)throw e;apply(d);toast(t('offlineMode'));return true}}
 function applyUI(){document.body.classList.toggle('rail',S.rail);const dk=S.theme==='dark'||(S.theme==='auto'&&matchMedia('(prefers-color-scheme: dark)').matches);document.body.classList.toggle('dark',dk);LS.set('theme2',S.theme);const mc=document.querySelector('meta[name=theme-color]');if(mc)mc.content=dk?'#0b0b0d':'#ffffff';document.documentElement.style.background=dk?'#0b0b0d':'#ffffff';document.documentElement.lang=S.lang;document.documentElement.dir=S.lang==='ar'?'rtl':'ltr'}
-let HASH=null;async function hashes(){if(!HASH){const r=await fetchAll(()=>sb.from('questions').select('id,content_hash').order('id'));HASH=new Set(r.map(x=>x.content_hash).filter(Boolean))}return HASH}
+let HASH=null;async function hashes(force){if(force||!HASH){const r=await fetchAll(()=>sb.from('questions').select('id,content_hash').order('id'));HASH=new Set(r.map(x=>x.content_hash).filter(Boolean))}return HASH}
 /* ================= helpers ================= */
 const stat=L=>{const a=L.filter(q=>A[q.id]&&A[q.id].ok!=null),c=a.filter(q=>A[q.id].ok).length;return{n:a.length,c,w:a.length-c,pct:a.length?Math.round(c/a.length*100):0,tot:L.length,prog:L.length?Math.round(a.length/L.length*100):0}};
 const base=()=>Q.filter(q=>q.part===S.part&&(S.src==='all'||q.source_id===S.src));
@@ -82,7 +82,7 @@ function primeUrls(paths,warm){const need=[...new Set(paths.filter(p=>p&&!sig[p]
 function img(path){if(!path)return Promise.resolve('');if(urlc[path])return urlc[path];
 return urlc[path]=(async()=>{try{const r=await(await caches.open('mrcp-img-v1')).match('https://img.cache/'+path);if(r)return URL.createObjectURL(await r.blob())}catch(e){}
 if(!navigator.onLine)return'';if(sig[path]){const u=await sig[path];if(u)return u}const{data}=await sb.storage.from(CF.bucket).createSignedUrl(path,21600);return data?data.signedUrl:''})().then(u=>{if(!u)delete urlc[path];return u})}
-async function hydrate(){for(const el of document.querySelectorAll('img[data-p]')){const u=await img(el.dataset.p);if(u)el.src=u;else el.alt='…'}}
+async function hydrate(){const L=[...document.querySelectorAll('img[data-p]')];let k=0;const w=async()=>{for(;;){const el=L[k++];if(!el)return;try{const u=await img(el.dataset.p);el.decoding='async';if(u)el.src=u;else el.alt='…'}catch(_){el.alt='…'}}};await Promise.all([w(),w(),w(),w(),w(),w()])}
 /* ================= nav / shell ================= */
 const flip=n=>`<span class=flip>${ic(n)}</span>`;
 function navHtml(){const it=[['study','home'],['progress','chart'],['library','lib'],['settings','cog']];
@@ -179,10 +179,11 @@ async function drawQuestion(stem,opts,key,expl){const W=640,P=30,m=document.crea
  return{q:await toBlob(mk(true,false,false)),a:await toBlob(mk(false,true,true))}}
 const ext=b=>b.type==='image/png'?'png':'webp';
 const norm=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim();
-async function insertQ(c,o){const id=uid(),qp=`${id}/q.${ext(o.qBlob)}`,ap=o.aBlob?`${id}/a.${ext(o.aBlob)}`:null;
- let r=await sb.storage.from(CF.bucket).upload(qp,o.qBlob,{contentType:o.qBlob.type||'image/webp'});if(r.error)throw r.error;
- if(ap){r=await sb.storage.from(CF.bucket).upload(ap,o.aBlob,{contentType:o.aBlob.type||'image/webp'});if(r.error)throw r.error}
- const pos=Math.max(0,...QA.filter(q=>q.part===c.part&&q.source_id===c.source_id&&q.branch_id===c.branch_id).map(q=>q.position))+1;
+async function insertQ(c,o,pos0){const id=uid(),qp=`${id}/q.${ext(o.qBlob)}`,ap=o.aBlob?`${id}/a.${ext(o.aBlob)}`:null;
+ const up=[sb.storage.from(CF.bucket).upload(qp,o.qBlob,{contentType:o.qBlob.type||'image/webp'})];if(ap)up.push(sb.storage.from(CF.bucket).upload(ap,o.aBlob,{contentType:o.aBlob.type||'image/webp'}));
+ const ur=await Promise.all(up),ue=ur.find(x=>x.error);if(ue){try{await sb.storage.from(CF.bucket).remove([qp,ap].filter(Boolean))}catch(_){}throw ue.error}
+ let r;
+ const pos=pos0||Math.max(0,...QA.filter(q=>q.part===c.part&&q.source_id===c.source_id&&q.branch_id===c.branch_id).map(q=>q.position))+1;
  const row={id,part:c.part,source_id:c.source_id,branch_id:c.branch_id,chapter_id:c.chapter_id,position:pos,n_options:o.n,correct_option:o.key||null,question_img:qp,answer_img:ap,content_hash:o.hash};
  r=await sb.from('questions').insert(row);if(r.error)throw r.error;QA.push({...row,status:'published',current_version:1});if(HASH&&o.hash)HASH.add(o.hash);return row}
 /* ---- add one question ---- */
@@ -338,7 +339,7 @@ function normRow(o){const g=(...ks)=>{for(const k of ks){const v=o[k];if(v!==und
  if(Array.isArray(o.options))opts=o.options.map(String);else if(o.options&&typeof o.options==='object')opts=Object.values(o.options).map(String);
  else for(let i=0;i<8;i++){const L='abcdefgh'[i],v=g(L,'option '+L,'option_'+L,'opt '+L,'opt_'+L,'option'+L,L+')','choice '+L);if(!v)break;opts.push(v)}
  return{stem:g('question','stem','q','text','question text'),opts,ans:g('answer','key','correct','correct answer','correct_option','correct option'),expl:g('explanation','rationale','exp','explain'),part:g('part','mrcp part'),source:g('source'),year:g('year'),branch:g('branch','specialty','speciality','category'),chapter:g('chapter','topic')}}
-async function analyzeRows(raw,d){const seen=new Set(await hashes()),out=[];
+async function analyzeRows(raw,d){const seen=new Set(await hashes(true)),out=[];
  for(let i=0;i<raw.length;i++){const r=normRow(raw[i]),msgs=[],info=[];let part=d.part;if(r.part){const m=String(r.part).match(/[12]/);if(m)part=+m[0];else msgs.push('part')}
   if(r.stem.length<8)msgs.push(t('stem'));if(r.opts.length<2)msgs.push(t('optionN'));
   let key=null;if(r.ans){const a=r.ans.trim();if(/^[A-Ha-h]$/.test(a))key=a.toUpperCase();else if(/^[1-8]$/.test(a))key='ABCDEFGH'[+a-1];else{const ix=r.opts.findIndex(o=>norm(o)===norm(a));if(ix>=0)key='ABCDEFGH'[ix]}}
@@ -364,16 +365,21 @@ async function runFile(){const s=S.sheet,ok=s.items.filter(x=>x.status==='ok'),r
  s.step='run';for(let i=0;i<ok.length;i++){const x=ok[i];s.msg=`${i+1} / ${ok.length}`;drawSheet();try{const so=await ensure('src',x.sName,x.sYear),br=await ensure('br',x.brName),ch=x.chName?await ensure('ch',x.chName,null,br.id):null;
   const o=x.r.opts,im=await drawQuestion(x.r.stem,o,x.key,x.r.expl);await insertQ({part:x.part,source_id:so.id,branch_id:br.id,chapter_id:ch?ch.id:null},{qBlob:im.q,aBlob:im.a,key:x.key,n:o.length,hash:x.hash});res.added++}catch(e){res.err++;errs.push({row:x.i,problem:String(e.message||e)})}}
  s.errs=errs;s.res=res;s.step='done';log('import','questions',{file:s.fname,...res});await load();drawSheet();render()}
-async function onPackPicked(files){const e=$('#i_err');files=[...files];try{files=await Promise.all(files.map(async f=>new File([await f.arrayBuffer()],f.name,{type:f.type||(/\.json$/i.test(f.name)?'application/json':/\.png$/i.test(f.name)?'image/png':'image/webp')})))}catch(x){return e.textContent=t('fileInvalid')+': '+(x.message||x)}const emp=files.filter(f=>!f.size);if(emp.length)return e.textContent='Empty files ('+emp.length+'): '+emp.slice(0,3).map(f=>f.name).join(', ');const pj=files.find(f=>f.name==='pack.json');let meta=null;if(pj)try{meta=JSON.parse(await pj.text())}catch(x){return e.textContent='pack.json'}
- const re=/^(\d+).*?_([qa])\.\w+$/i,im=files.filter(f=>f!==pj);if(!im.length||!im.every(f=>re.test(f.name)))return e.textContent=t('fileInvalid');
- const d={};im.forEach(f=>{const x=f.name.match(re);(d[+x[1]]=d[+x[1]]||{})[x[2].toLowerCase()]=f});const keys=Object.keys(d).map(Number).sort((a,b)=>a-b).filter(k=>d[k].q),seen=new Set(await hashes()),items=[];
- S.sheet.step='run';for(let i=0;i<keys.length;i++){const f=d[keys[i]];if(i%20==0){S.sheet.msg=`${t('files')}: ${i} / ${keys.length}`;drawSheet()}const h=await sha(await f.q.arrayBuffer()),k=f.q.name.match(/_k([A-H])_/i),n=f.q.name.match(/_n(\d)_/),c=f.q.name.match(/_(c\d+)_/);
+async function onPackPicked(files){const e=$('#i_err');files=[...files];
+ const pg=document.createElement('div');pg.className='em';pg.id='i_prog';pg.textContent='…';if(e&&e.parentNode)e.parentNode.insertBefore(pg,e);
+ const bye=m=>{pg.remove();e.textContent=m},H=new Map(),hp=hashes(true).catch(()=>null);
+ try{const out=[];for(let i=0;i<files.length;i+=6){out.push(...await Promise.all(files.slice(i,i+6).map(async f=>{const b=await f.arrayBuffer(),nf=new File([b],f.name,{type:f.type||(/\.json$/i.test(f.name)?'application/json':/\.png$/i.test(f.name)?'image/png':'image/webp')});if(/_q\.\w+$/i.test(f.name)&&b.byteLength)H.set(nf,await sha(b));return nf})));pg.textContent=`${t('files')}: ${Math.min(i+6,files.length)} / ${files.length}`;await new Promise(r=>setTimeout(r,0))}files=out}catch(x){return bye(t('fileInvalid')+': '+(x.message||x))}const emp=files.filter(f=>!f.size);if(emp.length)return bye('Empty files ('+emp.length+'): '+emp.slice(0,3).map(f=>f.name).join(', '));const pj=files.find(f=>f.name==='pack.json');let meta=null;if(pj)try{meta=JSON.parse(await pj.text())}catch(x){return bye('pack.json')}
+ const re=/^(\d+).*?_([qa])\.\w+$/i,im=files.filter(f=>f!==pj);if(!im.length||!im.every(f=>re.test(f.name)))return bye(t('fileInvalid'));
+ const d={};im.forEach(f=>{const x=f.name.match(re);(d[+x[1]]=d[+x[1]]||{})[x[2].toLowerCase()]=f});const keys=Object.keys(d).map(Number).sort((a,b)=>a-b).filter(k=>d[k].q),hs=await hp;if(!hs)return bye('Could not check duplicates. Check connection and try again');const seen=new Set(hs),items=[];
+ S.sheet.step='run';for(let i=0;i<keys.length;i++){const f=d[keys[i]];if(i%20==0){S.sheet.msg=`${t('files')}: ${i} / ${keys.length}`;drawSheet()}const h=H.get(f.q)||await sha(await f.q.arrayBuffer()),k=f.q.name.match(/_k([A-H])_/i),n=f.q.name.match(/_n(\d)_/),c=f.q.name.match(/_(c\d+)_/);
   items.push({q:f.q,a:f.a||null,hash:h,key:k?k[1].toUpperCase():null,n:n?+n[1]:5,cid:c?c[1]:null,status:seen.has(h)?'dup':'ok'});seen.add(h)}
  S.sheet.items=items;S.sheet.meta=meta;S.sheet.step='preview';S.sheet.tab='pack';drawSheet()}
 async function runPack(){const s=S.sheet,ok=s.items.filter(x=>x.status==='ok'),res={added:0,dup:s.items.filter(x=>x.status==='dup').length,err:0},errs=[],cls=s.meta?null:readClass();let so,br,cm={},part=1,def=null;
  s.step='run';s.msg='…';drawSheet();try{if(s.meta){const m=s.meta;part=m.part||1;so=await ensure('src',m.source.name,m.source.year);br=await ensure('br',m.branch);for(const c of m.chapters||[])cm[c.id]=(await ensure('ch',c.name,null,br.id)).id}
  else{part=cls.part;so={id:cls.source_id};br={id:cls.branch_id};def=cls.chapter_id}}catch(e){s.step='preview';drawSheet();return toast(e.message||e)}
- for(let i=0;i<ok.length;i++){const x=ok[i];s.msg=`${i+1} / ${ok.length}`;if(i%5==0)drawSheet();try{await insertQ({part,source_id:so.id,branch_id:br.id,chapter_id:(x.cid&&cm[x.cid])||def},{qBlob:x.q,aBlob:x.a,key:x.key,n:x.n,hash:x.hash});res.added++}catch(e){res.err++;errs.push({row:i+1,problem:String(e.message||e)})}}
+ const base=Math.max(0,...QA.filter(q=>q.part===part&&q.source_id===so.id&&q.branch_id===br.id).map(q=>q.position));let nx=0,dn=0;
+ const wk=async()=>{for(;;){const i=nx++;if(i>=ok.length)return;const x=ok[i];try{await insertQ({part,source_id:so.id,branch_id:br.id,chapter_id:(x.cid&&cm[x.cid])||def},{qBlob:x.q,aBlob:x.a,key:x.key,n:x.n,hash:x.hash},base+i+1);res.added++}catch(e){res.err++;errs.push({row:i+1,problem:String(e.message||e)})}dn++;s.msg=`${dn} / ${ok.length}`;if(dn%5==0||dn===ok.length)drawSheet()}};
+ s.msg=`0 / ${ok.length}`;drawSheet();await Promise.all([wk(),wk(),wk()]);errs.sort((x,y)=>x.row-y.row);
  s.errs=errs;s.res=res;s.step='done';log('import','pack',res);await load();drawSheet();render()}
 /* ================= settings ================= */
 const gk=q=>q.part+'|'+q.source_id+'|'+q.branch_id,pathsOf=l=>[...new Set(l.flatMap(q=>[q.question_img,q.answer_img]).filter(Boolean))],gmap=()=>{const g={};Q.forEach(q=>(g[gk(q)]=g[gk(q)]||[]).push(q));return g};
